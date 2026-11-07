@@ -6,18 +6,15 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
-from PySide6.QtGui import QAction, QColor, QFont, QIcon, QPalette
+from PySide6.QtGui import QColor, QCloseEvent, QFont, QIcon, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMenu,
     QProgressBar,
     QPushButton,
-    QMessageBox,
-    QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
@@ -199,7 +196,6 @@ class SpeedTestWindow(QMainWindow):
         self.setFixedSize(410, 390)
         self._thread: QThread | None = None
         self._worker: SpeedTestWorker | None = None
-        self._tray: QSystemTrayIcon | None = None
         self._quit_after_test = False
 
         self._build_ui()
@@ -269,7 +265,7 @@ class SpeedTestWindow(QMainWindow):
         metric_row.addStretch()
         readout_layout.addLayout(metric_row)
 
-        self.phase_label = QLabel("Click the tray icon to begin")
+        self.phase_label = QLabel("Preparing speed test")
         self.phase_label.setFont(QFont("Segoe UI", 10))
         readout_layout.addWidget(self.phase_label)
 
@@ -321,14 +317,11 @@ class SpeedTestWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-    def set_tray(self, tray: QSystemTrayIcon) -> None:
-        self._tray = tray
-
     def _set_ready_state(self) -> None:
         self.connection_label.setText("READY")
         self.metric_label.setText("---")
         self.unit_label.setText("Mb/s")
-        self.phase_label.setText("Click the tray icon to begin")
+        self.phase_label.setText("Ready to test")
         self.progress.setValue(0)
         self.detail_label.setText("No background testing or monitoring")
         self.action_button.setText("Start test")
@@ -352,8 +345,6 @@ class SpeedTestWindow(QMainWindow):
         self.detail_label.setText("By Hiroshi Kelner")
         self.action_button.setText("Cancel test")
         self.action_button.setEnabled(True)
-        if self._tray is not None:
-            self._tray.setToolTip("Speed Test · test running")
         for key, unit in (("download", "Mb/s"), ("upload", "Mb/s"), ("latency", "ms")):
             self.stat_values[key].setText(f"-- {unit}")
 
@@ -407,20 +398,12 @@ class SpeedTestWindow(QMainWindow):
         self.detail_label.setText(quality)
         self.action_button.setText("Run again")
 
-        if self._tray is not None:
-            self._tray.setToolTip(
-                f"Speed Test · {quality} · ↓ {format_speed(download)} Mb/s "
-                f"↑ {format_speed(upload)} Mb/s"
-            )
-
     @Slot(str)
     def _on_failed(self, message: str) -> None:
         self.connection_label.setText("TEST FAILED")
         self.phase_label.setText("Could not complete the test")
         self.detail_label.setText(message)
         self.action_button.setText("Try again")
-        if self._tray is not None:
-            self._tray.setToolTip("Speed Test · test failed, click to retry")
 
     @Slot()
     def _on_cancelled(self) -> None:
@@ -428,8 +411,6 @@ class SpeedTestWindow(QMainWindow):
         self.phase_label.setText("Test cancelled")
         self.detail_label.setText("No result was saved")
         self.action_button.setText("Start test")
-        if self._tray is not None:
-            self._tray.setToolTip("Speed Test · test cancelled, click to run")
 
     @Slot()
     def _on_thread_finished(self) -> None:
@@ -439,31 +420,20 @@ class SpeedTestWindow(QMainWindow):
         if self._quit_after_test:
             QApplication.quit()
 
-    def start_from_tray(self) -> None:
-        self.show()
-        self.raise_()
-        self.activateWindow()
-        if self._thread is None:
-            self._start_test()
-
-    def closeEvent(self, event) -> None:
-        event.ignore()
-        self.hide()
-
-    def quit_application(self) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         if self._thread is not None:
             self._quit_after_test = True
             self._thread.requestInterruption()
             self.action_button.setEnabled(False)
             self.phase_label.setText("Stopping before exit")
-        else:
-            QApplication.quit()
+            event.ignore()
+            return
+        event.accept()
 
 
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Speed Test")
-    app.setQuitOnLastWindowClosed(False)
     app.setStyle("Fusion")
     app.setFont(QFont("Segoe UI", 10))
     palette = QPalette()
@@ -490,63 +460,8 @@ def main() -> int:
     icon = QIcon(str(icon_path))
     window = SpeedTestWindow()
     window.setWindowIcon(icon)
-
-    tray = QSystemTrayIcon(icon, app)
-    tray.setToolTip("Speed Test — click to run a test")
-    menu = QMenu()
-    menu.setStyleSheet(
-        """
-        QMenu {
-            background: #111111;
-            color: #ffffff;
-            border: 1px solid #444444;
-            padding: 4px;
-        }
-        QMenu::item { padding: 7px 24px; }
-        QMenu::item:selected { background: #333333; }
-        QMenu::separator {
-            height: 1px;
-            background: #444444;
-            margin: 4px 8px;
-        }
-        """
-    )
-    test_action = QAction("Run speed test", menu)
-    test_action.triggered.connect(window.start_from_tray)
-    show_action = QAction("Show results", menu)
-    show_action.triggered.connect(window.show)
-    quit_action = QAction("Quit", menu)
-    quit_action.triggered.connect(window.quit_application)
-    menu.addAction(test_action)
-    menu.addAction(show_action)
-    menu.addSeparator()
-    menu.addAction(quit_action)
-    tray.setContextMenu(menu)
-    tray.activated.connect(
-        lambda reason: window.start_from_tray()
-        if reason
-        in (
-            QSystemTrayIcon.ActivationReason.Trigger,
-            QSystemTrayIcon.ActivationReason.DoubleClick,
-        )
-        else None
-    )
-    window.set_tray(tray)
-
-    if QSystemTrayIcon.isSystemTrayAvailable():
-        tray.show()
-    else:
-        window.show()
-        window.detail_label.setText("System tray unavailable — use this window")
-
-    stop_file = Path(__file__).with_name("stop.txt")
-    if not stop_file.exists():
-        help_dialog = QMessageBox(QMessageBox.Icon.Information, "How to use Speed Test", "Click the Speed Test icon in the system tray to start a speed test. Right-click the icon to show results or quit.")
-        stop_button = help_dialog.addButton("Don't show this again", QMessageBox.ButtonRole.ActionRole)
-        help_dialog.addButton(QMessageBox.StandardButton.Ok)
-        help_dialog.exec()
-        if help_dialog.clickedButton() is stop_button:
-            stop_file.touch()
+    window.show()
+    window._start_test()
 
     return app.exec()
 

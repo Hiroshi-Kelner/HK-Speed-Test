@@ -1,24 +1,84 @@
-# Speed Test
+# HK Speed Test
 
-A small, dark monochrome PySide6 system-tray speed test. It stays idle until you
-click its tray icon; that click opens the results window and starts a test.
-Right-click the icon to run a test, show the window, or quit.
+A lightweight Windows desktop speed test built with Python and PySide6. When launched, the app opens its monochrome interface and immediately measures download speed, upload speed, and latency.
 
-## Set up on Windows
+## Features
 
-Run `setup.bat` to create the `.venv` virtual environment and install the
-dependencies from `requirements.txt`. Python 3 must be installed; if it is
-missing, the script opens the Python downloads page. Install Python with
-**Add Python to PATH** enabled, then run `setup.bat` again.
+- Measures download speed, upload speed, and ping latency
+- Automatically starts a speed test when the app launches
+- Uses Cloudflare's public speed test endpoint
+- Streams data in 64 KB chunks to reduce temporary memory usage
+- No background testing or network monitoring while idle
+- Simple startup integration for Windows login
 
-Run `run.bat` to activate the virtual environment and launch `main.py`. Run
-`startup.bat` once to add the app to your Windows startup apps; it creates a
-shortcut so the app launches when you sign in.
+## Requirements
 
-Each test uses Cloudflare's public speed-test endpoint and transfers up to
-about 35 MB. The app does not test, monitor, or send network requests in the
-background. Download data and upload payloads are streamed in 64 KB chunks to
-keep temporary memory use low; Python and Qt still have their normal idle
-runtime overhead.
+- Windows 10 or newer
+- Python 3 installed
+- Internet connection for the speed test
 
-The tray tooltip summarizes the measured connection after a successful test.
+## Quick start
+
+1. Open a terminal in the project folder.
+2. Run `setup.bat`.
+   - This creates a local `.venv` environment
+   - Installs the dependencies from `requirements.txt`
+   - If Python is not installed, the script opens the official Python download page
+3. Run `run.bat` to launch the app.
+
+## Manual usage
+
+### Start the app
+
+```bat
+run.bat
+```
+
+`run.bat` activates the project's `.venv` and runs `main.py`. The app opens its results window and starts a test automatically. Use the button to cancel the test or run it again.
+
+## How it works
+
+The app connects to Cloudflare's public speed test endpoint and performs:
+
+- a latency check
+- a download test
+- an upload test
+
+During the test, it reports live progress and shows a final quality label such as:
+
+- Slow connection
+- Limited connection
+- Good connection
+- Very fast connection
+
+## Notes
+
+- Each test transfers around 35 MB total in the normal download/upload flow.
+- The app does not run background tests or monitoring while closed.
+- Closing the results window exits the app.
+
+## Troubleshooting
+
+### Python is missing
+
+If `setup.bat` reports that Python is not found:
+
+- install Python 3
+- make sure the option `Add Python to PATH` is enabled
+- rerun `setup.bat`
+
+### Virtual environment not found
+
+If `run.bat` says the virtual environment does not exist:
+
+```bat
+setup.bat
+```
+
+### App does not launch
+
+Make sure the project folder contains a valid `.venv` and that dependencies were installed successfully before starting the app.
+
+## License
+
+This project is intended for personal use and local testing. See the repository for the current licensing details if applicable.
