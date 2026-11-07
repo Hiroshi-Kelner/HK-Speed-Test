@@ -19,7 +19,14 @@ A lightweight Windows desktop speed test built with Python and PySide6. When lau
 
 ## Quick start
 
-1. Open a terminal in the project folder.
+1. Clone the `main` branch and enter the project folder:
+
+   ```bat
+   git clone --branch main https://github.com/Hiroshi-Kelner/HK-Speed-Test.git
+   cd HK-Speed-Test
+   ```
+
+   The GitHub `/tree/main` URL opens the branch in a browser; use the repository URL above with Git.
 2. Run `setup.bat`.
    - This creates a local `.venv` environment
    - Installs the dependencies from `requirements.txt`
